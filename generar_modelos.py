@@ -1,5 +1,7 @@
 from __future__ import print_function
 
+import sys
+
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import credentials
@@ -12,6 +14,8 @@ PERIODO = "Marzo - Abril"
 def main():
 
     creds = credentials.credentials()
+
+
 
     try:
         docs = build('docs', 'v1', credentials=creds)
@@ -34,8 +38,12 @@ def main():
 
         # PARA CADA PLANILLA
         for s in sheets:
-            print(s['name'])
             grado = s['name']
+            if len(sys.argv) > 1:
+                if not (grado in sys.argv):
+                    continue;
+            print(s['name'])
+
             # LEER CELDAS
             result = sheet.spreadsheets().values().get(spreadsheetId=s['id'], range="A1:A100").execute()
             rows = result.get('values', [])
@@ -73,10 +81,22 @@ def main():
             else:
                 periodoFolderId = folders[0].get('id')
 
+            # TRAER LAS COPIAS DE LA CARPETA
+            results = drive.files().list(
+                q="'" + periodoFolderId + "' in parents and mimeType contains 'document' and trashed = False",
+                pageSize=100, fields="nextPageToken, files(id, name, parents)").execute()
+            cs = results.get('files', [])
+            copias = []
+            for c in cs:
+                copias.append(c['name'])
+
             # PARA CADA ALUMNO
             for a in rows:
                 alumno = a[0]
                 print(alumno)
+                # SI YA EXISTE SALTEAR
+                if(alumno in copias):
+                    continue;
                 for m in modelos:
                     if m['name'] == grado:
                         # CREAR LA COPIA
